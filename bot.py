@@ -27,7 +27,7 @@ def analyze():
             continue
     
     # الرابط النهائي مكتوب يدوياً بالكامل لتجنب أخطاء التابلت
-    final_url = f"https://telegram.org{TOKEN}/sendMessage"
+    final_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     
     # إرسال الرسالة
     requests.post(final_url, json={
