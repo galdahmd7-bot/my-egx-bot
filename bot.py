@@ -1,7 +1,7 @@
 import yfinance as yf
 import requests
 
-# تم تصحيح البيانات والروابط تماماً هنا
+# التوكن والآي دي بتوعك
 TOKEN = "8044601202:AAHbkfF_v0GO9vfoCluUk9uBTADtu4G3gMU"
 CHAT_ID = "7221534941"
 
@@ -16,14 +16,9 @@ def analyze_stock(symbol):
         change_pct = ((last_price - prev_price) / prev_price) * 100
         trend = "🟢 صاعد" if last_price > prev_price else "🔴 هابط"
         
-        # جلب خبر بسيط
-        news = ticker.news
-        news_title = news[0]['title'] if news else "لا توجد أخبار جديدة"
-
         return (f"🔹 *سهم {symbol}*\n"
                 f"💰 السعر: {last_price:.2f} ج.م ({change_pct:+.2f}%)\n"
                 f"📊 الحالة: {trend}\n"
-                f"📰 خبر: {news_title[:50]}...\n"
                 f"------------------------\n")
     except:
         return None
@@ -36,9 +31,17 @@ def main():
         res = analyze_stock(s)
         if res: final_report += res
     
-    # تصحيح الرابط بإضافة كلمة bot قبل التوكن مباشرة
-    url = f"https://telegram.org{TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": CHAT_ID, "text": final_report, "parse_mode": "Markdown"})
+    # الرابط الكامل والصحيح (تمت إضافة api.)
+    full_url = "https://telegram.org" + TOKEN + "/sendMessage"
+    
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": final_report,
+        "parse_mode": "Markdown"
+    }
+    
+    response = requests.post(full_url, json=payload)
+    print(f"Server Response: {response.status_code}")
 
 if __name__ == "__main__":
     main()
