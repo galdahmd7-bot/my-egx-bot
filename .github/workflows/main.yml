@@ -1,0 +1,19 @@
+name: EGX Daily Bot
+on:
+  schedule:
+    - cron: '0 8 * * 0-4' # يعمل الساعة 10 صباحاً بتوقيت مصر (الأحد للخميس)
+  workflow_dispatch: # زر للتشغيل اليدوي للتجربة
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install Libraries
+        run: pip install yfinance requests pandas
+      - name: Run Analysis
+        run: python bot.py
