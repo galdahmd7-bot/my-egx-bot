@@ -1,82 +1,138 @@
-import yfinance as yf
 import requests
-import logging
+import time
+import statistics
 
-# إعداد السجل
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+TOKEN = "PUT_TOKEN"
+CHAT_ID = "PUT_CHAT_ID"
 
-# البيانات الصحيحة - محدّثة
-TOKEN = "8644601202:AAHbkrF_vQG09vfocluUk9uBTAdtu4G5gMU"
-CHAT_ID = "7221584941"
+stocks = ["MCRO.CA","ISPH.CA","MFPC.CA","POUL.CA","ARAB.CA"]
 
-def analyze():
-    stocks = ["ISPH", "MCRO", "MFPC", "POUL"]
-    report = "🚀 *تقرير البورصة المصرية* 🚀\n\n"
-    success_count = 0
-    
+# كلمات تحليل الخبر
+positive_words = ["ربح", "نمو", "توسعات", "زيادة", "اتفاق"]
+negative_words = ["خسارة", "تراجع", "ديون", "هبوط", "مشاكل"]
+
+def send(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    requests.get(url, params={"chat_id": CHAT_ID, "text": msg})
+
+def get_prices(symbol):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=5m&range=1d"
+    data = requests.get(url).json()
+    prices = data['chart']['result'][0]['indicators']['quote'][0]['close']
+    volumes = data['chart']['result'][0]['indicators']['quote'][0]['volume']
+    return prices, volumes
+
+def ema(prices, n):
+    k = 2/(n+1)
+    e = prices[0]
+    for p in prices:
+        e = p*k + e*(1-k)
+    return e
+
+def rsi(prices):
+    gains, losses = [], []
+    for i in range(1, len(prices)):
+        diff = prices[i] - prices[i-1]
+        if diff > 0:
+            gains.append(diff)
+        else:
+            losses.append(abs(diff))
+    avg_gain = sum(gains)/len(gains) if gains else 0.1
+    avg_loss = sum(losses)/len(losses) if losses else 0.1
+    rs = avg_gain / avg_loss
+    return 100 - (100/(1+rs))
+
+def get_news():
+    try:
+        url = "https://www.mubasher.info/api/1/news"
+        res = requests.get(url).json()
+        if "data" in res:
+            return res["data"][:5]
+    except:
+        return []
+    return []
+
+def analyze_news(news_list):
+    score = 0
+    text = ""
+
+    for n in news_list:
+        title = n.get("title", "")
+        text += f"\n📰 {title}"
+
+        for w in positive_words:
+            if w in title:
+                score += 1
+        for w in negative_words:
+            if w in title:
+                score -= 1
+
+    if score > 1:
+        sentiment = "إيجابي 🔥"
+    elif score < -1:
+        sentiment = "سلبي ❌"
+    else:
+        sentiment = "محايد ⚠️"
+
+    return sentiment, text
+
+def analyze(symbol, sentiment):
+    prices, volumes = get_prices(symbol)
+    if len(prices) < 20:
+        return None
+
+    last = prices[-1]
+    ema9 = ema(prices, 9)
+    ema21 = ema(prices, 21)
+    r = rsi(prices)
+
+    support = min(prices[-20:])
+    resistance = max(prices[-20:])
+
+    score = 0
+    msg = f"\n📊 {symbol}\nالسعر: {last:.2f}"
+
+    if ema9 > ema21:
+        score += 1
+        msg += "\n📈 صاعد"
+    else:
+        msg += "\n📉 هابط"
+
+    if 50 < r < 65:
+        score += 1
+        msg += "\n⚡ زخم جيد"
+
+    if abs(last - support) < 0.03:
+        score += 1
+        msg += "\n🟢 دعم"
+
+    if sentiment == "إيجابي 🔥":
+        score += 1
+
+    # التوقع
+    if score >= 3:
+        forecast = "🚀 صعود متوقع"
+    elif score <= 1:
+        forecast = "📉 هبوط متوقع"
+    else:
+        forecast = "⏸️ عرضي"
+
+    msg += f"\n🔮 التوقع: {forecast}"
+
+    return msg
+
+while True:
+    news_list = get_news()
+    sentiment, news_text = analyze_news(news_list)
+
+    send(f"🧠 تحليل الأخبار: {sentiment}\n{news_text}")
+
     for s in stocks:
         try:
-            # جلب البيانات
-            data = yf.Ticker(f"{s}.CA").history(period="5d")
-            
-            # التحقق من وجود بيانات كافية
-            if data.empty or len(data) < 2:
-                logger.warning(f"بيانات غير كافية للسهم {s}")
-                continue
-            
-            price = data['Close'].iloc[-1]
-            prev_price = data['Close'].iloc[-2]
-            change = ((price - prev_price) / prev_price) * 100
-            trend = "🟢 صاعد" if price > prev_price else "🔴 هابط"
-            
-            report += f"🔹 *{s}*: {price:.2f} ج.م ({change:+.2f}%)\n"
-            report += f"الحالة: {trend}\n"
-            report += "------------------------\n"
-            success_count += 1
-            
-        except Exception as e:
-            logger.error(f"خطأ في جلب بيانات {s}: {str(e)}")
-            continue
-    
-    # التحقق من وجود بيانات للإرسال
-    if success_count == 0:
-        report += "⚠️ لم يتم الحصول على بيانات"
-        logger.warning("لم يتم جلب أي بيانات بنجاح")
-    
-    # الرابط الصحيح لـ Telegram API
-    final_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    
-    # إرسال الرسالة مع معالجة الأخطاء
-    try:
-        response = requests.post(
-            final_url,
-            json={
-                "chat_id": CHAT_ID,
-                "text": report,
-                "parse_mode": "Markdown"
-            },
-            timeout=10
-        )
-        
-        # التحقق من نجاح الإرسال
-        if response.status_code == 200:
-            logger.info("✅ تم إرسال الرسالة بنجاح")
-            return True
-        else:
-            logger.error(f"❌ فشل الإرسال - الكود: {response.status_code}")
-            logger.error(f"الرد: {response.text}")
-            return False
-            
-    except requests.exceptions.Timeout:
-        logger.error("❌ انتهاء المهلة الزمنية - Telegram API لم يستجب")
-        return False
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ خطأ في الاتصال: {str(e)}")
-        return False
-    except Exception as e:
-        logger.error(f"❌ خطأ غير متوقع: {str(e)}")
-        return False
+            result = analyze(s, sentiment)
+            if result:
+                send(result)
+        except:
+            pass
 
-if __name__ == "__main__":
-    analyze()
+    time.sleep(300)
