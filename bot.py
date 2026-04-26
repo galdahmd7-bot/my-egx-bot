@@ -2,8 +2,8 @@ import requests
 import time
 import statistics
 
-TOKEN = "PUT_TOKEN"
-CHAT_ID = "PUT_CHAT_ID"
+TOKEN = "8644601202:AAHbkrF_vQG09vfocluUk9uBTAdtu4G5gMU"
+CHAT_ID = "7221584941"
 
 stocks = ["MCRO.CA","ISPH.CA","MFPC.CA","POUL.CA","ARAB.CA"]
 
